@@ -1,0 +1,48 @@
+name: Update Firebase on Merge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-firebase:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get last commit author
+        id: commit
+        run: echo "COMMIT_AUTHOR=$(git log -1 --pretty=%an)" >> $GITHUB_ENV
+
+      - name: Decide if workflow should run
+        if: env.COMMIT_AUTHOR == 'BloxyTube Video Syncer' && github.actor != 'github-actions[bot]'
+        run: echo "✅ Commit is from BloxyTube Video Syncer and merged by a human, continuing..."
+
+      - name: Set up Node.js
+        if: env.COMMIT_AUTHOR == 'BloxyTube Video Syncer' && github.actor != 'github-actions[bot]'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Firebase CLI
+        if: env.COMMIT_AUTHOR == 'BloxyTube Video Syncer' && github.actor != 'github-actions[bot]'
+        run: npm install -g firebase-tools
+
+      - name: Authenticate with Firebase
+        if: env.COMMIT_AUTHOR == 'BloxyTube Video Syncer' && github.actor != 'github-actions[bot]'
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > serviceAccount.json
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/serviceAccount.json
+
+      - name: Write video data to Firebase
+        if: env.COMMIT_AUTHOR == 'BloxyTube Video Syncer' && github.actor != 'github-actions[bot]'
+        run: node .github/scripts/addVideo.js
+        env:
+          PR_TITLE: ${{ github.event.head_commit.message }}  # commit message should contain PR title
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

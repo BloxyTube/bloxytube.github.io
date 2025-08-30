@@ -1,0 +1,59 @@
+name: PR Squash Merge on /merged
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  squash-merge:
+    # Only run if it's a PR comment, matches /merged,
+    # and commenter is OWNER, MEMBER, or COLLABORATOR
+    if: |
+      github.event.issue.pull_request != null &&
+      github.event.comment.body == '/merged' &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to push to main
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # important for merge
+
+      - name: Install GitHub CLI
+        uses: cli/cli-action@v2
+
+      - name: Squash merge PR
+        run: |
+          PR_NUMBER=${{ github.event.issue.number }}
+
+          echo "🔎 Squash merging PR #$PR_NUMBER..."
+
+          # fetch PR branch
+          git fetch origin pull/${PR_NUMBER}/head:pr-${PR_NUMBER}
+
+          # checkout main and make sure it's up to date
+          git checkout main
+          git pull origin main
+
+          # squash merge PR branch
+          git merge --squash pr-${PR_NUMBER}
+
+          # set fake author identity
+          git config user.name "BloxyTube Video Syncer"
+          git config user.email "sync@bloxytube.github.io"
+
+          # commit squashed changes
+          git commit -m "Squash merge PR #${PR_NUMBER} (via Video Syncer)"
+
+          # push to main
+          git push origin main
+
+          echo "✅ Successfully squash merged PR #$PR_NUMBER as BloxyTube Video Syncer"
